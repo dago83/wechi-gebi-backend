@@ -53,6 +53,28 @@ app.get('/api/health', (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
+
+// Add this before app.listen()
+app.get('/api/test-db', async (req, res) => {
+  try {
+    const users = await pool.query('SELECT COUNT(*) FROM public.users');
+    const transactions = await pool.query('SELECT COUNT(*) FROM public.transactions');
+    const budgets = await pool.query('SELECT COUNT(*) FROM public.budgets');
+    const recurring = await pool.query('SELECT COUNT(*) FROM public.recurring_transactions');
+
+    res.json({
+      users: users.rows[0].count,
+      transactions: transactions.rows[0].count,
+      budgets: budgets.rows[0].count,
+      recurring: recurring.rows[0].count,
+      message: '✅ All tables exist and accessible'
+    });
+  } catch (err) {
+    console.error('❌ Database test failed:', err);
+    res.status(500).json({ message: 'Database test failed' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
