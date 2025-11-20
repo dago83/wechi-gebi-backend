@@ -47,7 +47,7 @@ app.use('/api/export', exportRoutes);
 
 app.get('/api/dashboard', auth, getDashboardSummary);
 
-k
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'Backend OK ' });
 });
