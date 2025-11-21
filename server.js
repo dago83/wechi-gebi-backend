@@ -18,21 +18,25 @@ const allowedOrigins = [
   'http://localhost:5173',
   'https://wechi-gebi-frontend.vercel.app'
 ];
-
 app.use(helmet());
+
 app.use(
   cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true); 
       if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
+        return callback(null, true);
       }
+      return callback(null, false); 
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
   })
 );
+
+app.options('*', cors());
+
 app.use(morgan('combined'));
 app.use(express.json());
 
@@ -101,7 +105,7 @@ app.get('/setup', async (req, res) => {
     }
     res.json({ success: true, message: ' All tables created in Render PostgreSQL' });
   } catch (err) {
-    console.error('❌ Setup failed:', err);
+    console.error(' Setup failed:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -135,7 +139,7 @@ app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 10000;
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
