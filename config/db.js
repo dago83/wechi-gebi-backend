@@ -1,10 +1,16 @@
 
 const { Pool } = require('pg');
-require('dotenv').config();
 
+
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  console.error(' ERROR: DATABASE_URL is not set');
+  process.exit(1);
+}
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString,
   ssl: {
     rejectUnauthorized: false, 
   },
@@ -13,7 +19,7 @@ const pool = new Pool({
 
 pool.query('SELECT NOW()', (err, res) => {
   if (err) {
-    console.error('PostgreSQL connection failed:', err.stack);
+    console.error(' PostgreSQL connection failed:', err.stack);
   } else {
     console.log(' Connected to PostgreSQL');
   }
