@@ -87,8 +87,61 @@ app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-
 const PORT = process.env.PORT || 5000;
+
+
+app.get('/setup', async (req, res) => {
+  const queries = [
+    `CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(100) NOT NULL,
+      email VARCHAR(100) UNIQUE NOT NULL,
+      password VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`,
+    `CREATE TABLE IF NOT EXISTS transactions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      type VARCHAR(10) NOT NULL CHECK (type IN ('income', 'expense')),
+      amount DECIMAL(12, 2) NOT NULL CHECK (amount > 0),
+      description VARCHAR(255),
+      category VARCHAR(50) NOT NULL,
+      date DATE NOT NULL DEFAULT CURRENT_DATE,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`,
+    `CREATE TABLE IF NOT EXISTS budgets (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      category VARCHAR(50) NOT NULL,
+      monthly_limit DECIMAL(12, 2) NOT NULL CHECK (monthly_limit > 0),
+      month DATE NOT NULL DEFAULT DATE_TRUNC('month', CURRENT_DATE),
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(user_id, category, month)
+    )`,
+    `CREATE TABLE IF NOT EXISTS recurring_transactions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      type VARCHAR(10) NOT NULL CHECK (type IN ('income', 'expense')),
+      amount DECIMAL(12, 2) NOT NULL CHECK (amount > 0),
+      description VARCHAR(255),
+      category VARCHAR(50) NOT NULL,
+      frequency VARCHAR(10) NOT NULL CHECK (frequency IN ('daily', 'weekly', 'monthly')),
+      start_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      end_date DATE,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`
+  ];
+
+  try {
+    for (const query of queries) {
+      await pool.query(query);
+    }
+    res.json({ success: true, message: '✅ All tables created in Render PostgreSQL' });
+  } catch (err) {
+    console.error('❌ Setup failed:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
