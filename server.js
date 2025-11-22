@@ -20,30 +20,37 @@ const allowedOrigins = [
   'http://localhost:5173',
   'https://wechi-gebi-frontend.vercel.app',
   'https://wechi-gebi-frontend-id0el6c51-dago83s-projects.vercel.app',
-  'https://*.vercel.app' 
 ];
+function isVercelPreview(origin) {
+  try {
+    const url = new URL(origin);
+    return url.hostname.endsWith('.vercel.app');
+  } catch {
+    return false;
+  }
+}
 
-cors({
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
+app.use(
+  cors({
+    origin: (origin, callback) => {
+     
+      if (!origin) return callback(null, true);
 
-    const isAllowed = allowedOrigins.some((allowed) =>
-      allowed.includes('*')
-        ? origin.endsWith(allowed.replace('*.', ''))
-        : origin === allowed
-    );
+      const isAllowed =
+        allowedOrigins.includes(origin) || isVercelPreview(origin);
 
-    if (isAllowed) {
-      callback(null, true);
-    } else {
+      if (isAllowed) {
+        return callback(null, true);
+      }
+
       console.log(' Blocked by CORS:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-})
+      return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
 
 app.use(
   helmet({
