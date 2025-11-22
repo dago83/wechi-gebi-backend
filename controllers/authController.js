@@ -1,16 +1,12 @@
-
-const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
-const pool = require('../config/db'); 
-
-const router = express.Router();
-
+const pool = require('../config/db');
 
 const SALT_ROUNDS = Number(process.env.BCRYPT_SALT_ROUNDS) || 12;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRE || '7d';
+
 
 
 const validateRegister = [
@@ -43,7 +39,6 @@ const validateLogin = [
     .withMessage('Password is required'),
 ];
 
-
 function handleValidationErrors(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -53,15 +48,13 @@ function handleValidationErrors(req, res) {
 }
 
 
-router.post('/register', validateRegister, async (req, res) => {
- 
+const register = async (req, res) => {
   const validationError = handleValidationErrors(req, res);
-  if (validationError) return; 
+  if (validationError) return;
 
   const { name, email, password } = req.body;
 
   try {
-    
     const existsQ = await pool.query(
       'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
       [email]
@@ -71,20 +64,17 @@ router.post('/register', validateRegister, async (req, res) => {
       return res.status(409).json({ message: 'User with this email already exists' });
     }
 
-    // Hash password
-    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+    const hash = await bcrypt.hash(password, SALT_ROUNDS);
 
-   
     const insertQ = await pool.query(
       `INSERT INTO users (name, email, password_hash)
-       VALUES ($1, $2, $3)
+       VALUES ($1,$2,$3)
        RETURNING id, name, email, created_at`,
-      [name, email, passwordHash]
+      [name, email, hash]
     );
 
     const user = insertQ.rows[0];
 
-  
     const token = jwt.sign(
       { userId: user.id, email: user.email },
       JWT_SECRET,
@@ -100,41 +90,37 @@ router.post('/register', validateRegister, async (req, res) => {
     console.error('REGISTER ERROR:', err);
     return res.status(500).json({ message: 'Server error' });
   }
-});
+};
 
-
-router.post('/login', validateLogin, async (req, res) => {
-
+const login = async (req, res) => {
   const validationError = handleValidationErrors(req, res);
-  if (validationError) return; 
+  if (validationError) return;
 
   const { email, password } = req.body;
 
   try {
-   
-    const userQ = await pool.query('SELECT id, name, email, password_hash FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1', [email]);
+    const q = await pool.query(
+      'SELECT id, name, email, password_hash FROM users WHERE LOWER(email)=LOWER($1) LIMIT 1',
+      [email]
+    );
 
-    if (userQ.rows.length === 0) {
-      
+    if (!q.rows.length) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    const user = userQ.rows[0];
+    const user = q.rows[0];
+    const ok = await bcrypt.compare(password, user.password_hash);
 
-    
-    const passwordMatch = await bcrypt.compare(password, user.password_hash);
-    if (!passwordMatch) {
+    if (!ok) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    
     const token = jwt.sign(
       { userId: user.id, email: user.email },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN }
     );
 
-   
     return res.json({
       message: 'Login successful',
       token,
@@ -148,6 +134,11 @@ router.post('/login', validateLogin, async (req, res) => {
     console.error('LOGIN ERROR:', err);
     return res.status(500).json({ message: 'Server error' });
   }
-});
+};
 
-module.exports = router;
+module.exports = {
+  register,
+  login,
+  validateRegister,
+  validateLogin,
+};
