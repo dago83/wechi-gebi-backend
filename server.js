@@ -3,12 +3,12 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const bcrypt = require('bcrypt');
 const authRoutes = require('./routes/authRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const budgetRoutes = require('./routes/budgetRoutes');
 const recurringRoutes = require('./routes/recurringRoutes');
 const exportRoutes = require('./routes/exportRoutes');
+
 const { getDashboardSummary } = require('./controllers/dashboardController');
 const auth = require('./middleware/auth');
 const pool = require('./config/db');
@@ -21,19 +21,17 @@ const allowedOrigins = [
   'https://wechi-gebi-frontend.vercel.app'
 ];
 
-
-app.use(helmet());
-
-
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin) return callback(null, true); 
+      if (!origin) return callback(null, true);
+
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
+
       console.log(' Blocked by CORS:', origin);
-      return callback(new Error('Not allowed by CORS'));
+      return callback(new Error('Not allowed by CORS'), false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -42,29 +40,34 @@ app.use(
 );
 
 
-//app.options('*', cors());
-
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false,
+    contentSecurityPolicy: false, 
+  })
+);
 
 app.use(morgan('combined'));
 app.use(express.json());
+
 
 
 app.get('/', (req, res) => {
   res.send('Wechi Gebi Backend is running');
 });
 
-
 app.use('/api/auth', authRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/budgets', budgetRoutes);
 app.use('/api/recurring', recurringRoutes);
 app.use('/api/export', exportRoutes);
-app.get('/api/dashboard', auth, getDashboardSummary);
 
+app.get('/api/dashboard', auth, getDashboardSummary);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'Backend OK' });
 });
+
 
 
 app.get('/setup', async (req, res) => {
@@ -73,7 +76,7 @@ app.get('/setup', async (req, res) => {
       id SERIAL PRIMARY KEY,
       name VARCHAR(100) NOT NULL,
       email VARCHAR(100) UNIQUE NOT NULL,
-      password VARCHAR(255) NOT NULL,
+      password_hash VARCHAR(255) NOT NULL,
       created_at TIMESTAMP DEFAULT NOW()
     );`,
 
@@ -119,53 +122,39 @@ app.get('/setup', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'All tables created successfully in Render PostgreSQL'
+      message: 'All tables created successfully'
     });
   } catch (err) {
-    console.error(' Setup failed:', err);
+    console.error('Setup failed:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 
-app.get('/api/test-db', async (req, res) => {
-  try {
-    const users = await pool.query('SELECT COUNT(*) FROM users');
-    const transactions = await pool.query('SELECT COUNT(*) FROM transactions');
-    const budgets = await pool.query('SELECT COUNT(*) FROM budgets');
-    const recurring = await pool.query('SELECT COUNT(*) FROM recurring_transactions');
-
-    res.json({
-      users: Number(users.rows[0].count),
-      transactions: Number(transactions.rows[0].count),
-      budgets: Number(budgets.rows[0].count),
-      recurring: Number(recurring.rows[0].count),
-      message: 'Database tables exist and are accessible'
-    });
-  } catch (err) {
-    console.error(' Database test failed:', err);
-    res.status(500).json({
-      message: 'Database test failed',
-      error: err.message
-    });
-  }
-});
-
 app.get('/fix-passwords', async (req, res) => {
-  const users = await pool.query('SELECT id, password FROM users');
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ message: 'Not allowed in production' });
+  }
+
+  const users = await pool.query('SELECT id, password_hash FROM users');
+
   for (const user of users.rows) {
-    if (user.password.length < 60) {
-      
+    if (!user.password_hash || user.password_hash.length < 40) {
       const newHash = await bcrypt.hash('password123', 12);
-      await pool.query('UPDATE users SET password = $1 WHERE id = $2', [newHash, user.id]);
+      await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [newHash, user.id]);
     }
   }
-  res.json({ message: 'All passwords fixed (set to "password123")' });
+
+  res.json({ message: 'All weak passwords fixed (dev mode only)' });
 });
+
+
 
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
+
+
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () =>
   console.log(` Server running on http://localhost:${PORT}`)
