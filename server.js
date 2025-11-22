@@ -156,6 +156,18 @@ app.use((req, res) => {
 });
 
 
+app.get('/fix-passwords', async (req, res) => {
+  const users = await pool.query('SELECT id, password FROM users');
+  for (const user of users.rows) {
+    if (user.password.length < 60) {
+      
+      const newHash = await bcrypt.hash('password123', 12);
+      await pool.query('UPDATE users SET password = $1 WHERE id = $2', [newHash, user.id]);
+    }
+  }
+  res.json({ message: 'All passwords fixed (set to "password123")' });
+});
+
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () =>
   console.log(` Server running on http://localhost:${PORT}`)
