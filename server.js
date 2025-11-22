@@ -18,27 +18,32 @@ const app = express();
 
 const allowedOrigins = [
   'http://localhost:5173',
-  'https://wechi-gebi-frontend.vercel.app'
+  'https://wechi-gebi-frontend.vercel.app',
+  'https://wechi-gebi-frontend-id0el6c51-dago83s-projects.vercel.app',
+  'https://*.vercel.app' 
 ];
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
+cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+    const isAllowed = allowedOrigins.some((allowed) =>
+      allowed.includes('*')
+        ? origin.endsWith(allowed.replace('*.', ''))
+        : origin === allowed
+    );
 
+    if (isAllowed) {
+      callback(null, true);
+    } else {
       console.log(' Blocked by CORS:', origin);
-      return callback(new Error('Not allowed by CORS'), false);
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-  })
-);
-
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+})
 
 app.use(
   helmet({
