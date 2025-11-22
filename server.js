@@ -151,12 +151,6 @@ app.get('/api/test-db', async (req, res) => {
   }
 });
 
-
-app.use((req, res) => {
-  res.status(404).json({ message: 'Route not found' });
-});
-
-
 app.get('/fix-passwords', async (req, res) => {
   const users = await pool.query('SELECT id, password FROM users');
   for (const user of users.rows) {
@@ -169,6 +163,9 @@ app.get('/fix-passwords', async (req, res) => {
   res.json({ message: 'All passwords fixed (set to "password123")' });
 });
 
+app.use((req, res) => {
+  res.status(404).json({ message: 'Route not found' });
+});
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () =>
   console.log(` Server running on http://localhost:${PORT}`)
