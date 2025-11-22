@@ -142,7 +142,7 @@ app.get('/fix-passwords', async (req, res) => {
     }
   }
 
-  res.json({ message: 'All weak passwords fixed (dev mode only)' });
+  res.json({ message: 'All weak passwords fixed' });
 });
 app.get('/migrate-fix-users', async (req, res) => {
   try {
@@ -190,18 +190,6 @@ app.get('/migrate-fix-users', async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 });
-
-
-app.get('/delete-all-users', async (req, res) => {
-  try {
-    await pool.query('DELETE FROM users');
-    res.json({ message: "All users deleted." });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
 
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
