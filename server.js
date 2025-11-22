@@ -144,6 +144,52 @@ app.get('/fix-passwords', async (req, res) => {
 
   res.json({ message: 'All weak passwords fixed (dev mode only)' });
 });
+app.get('/migrate-fix-users', async (req, res) => {
+  try {
+    
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_name='users' AND column_name='password_hash'
+        ) THEN
+          ALTER TABLE users ADD COLUMN password_hash VARCHAR(255);
+        END IF;
+      END
+      $$;
+    `);
+
+    
+    await pool.query(`
+      UPDATE users
+      SET password_hash = password
+      WHERE password_hash IS NULL AND password IS NOT NULL;
+    `);
+
+   
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_name='users' AND column_name='password'
+        ) THEN
+          ALTER TABLE users DROP COLUMN password;
+        END IF;
+      END
+      $$;
+    `);
+
+    return res.json({ message: "Migration complete: password_hash fixed." });
+
+  } catch (err) {
+    console.error("MIGRATION ERROR:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
 
 
 
