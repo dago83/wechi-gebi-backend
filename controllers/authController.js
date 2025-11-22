@@ -8,7 +8,6 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRE || '7d';
 
 
-
 const validateRegister = [
   body('name')
     .trim()
@@ -39,41 +38,40 @@ const validateLogin = [
     .withMessage('Password is required'),
 ];
 
-function handleValidationErrors(req, res) {
+function validationFailed(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
+    res.status(400).json({ errors: errors.array() });
+    return true;
   }
-  return null;
+  return false;
 }
 
-
 const register = async (req, res) => {
-  const validationError = handleValidationErrors(req, res);
-  if (validationError) return;
+  if (validationFailed(req, res)) return;
 
   const { name, email, password } = req.body;
 
   try {
-    const existsQ = await pool.query(
-      'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+    const exists = await pool.query(
+      'SELECT id FROM users WHERE LOWER(email) = LOWER($1)',
       [email]
     );
 
-    if (existsQ.rows.length > 0) {
-      return res.status(409).json({ message: 'User with this email already exists' });
+    if (exists.rows.length > 0) {
+      return res.status(409).json({ message: 'User already exists' });
     }
 
-    const hash = await bcrypt.hash(password, SALT_ROUNDS);
+    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
-    const insertQ = await pool.query(
+    const insert = await pool.query(
       `INSERT INTO users (name, email, password_hash)
-       VALUES ($1,$2,$3)
+       VALUES ($1, $2, $3)
        RETURNING id, name, email, created_at`,
-      [name, email, hash]
+      [name, email, passwordHash]
     );
 
-    const user = insertQ.rows[0];
+    const user = insert.rows[0];
 
     const token = jwt.sign(
       { userId: user.id, email: user.email },
@@ -84,8 +82,9 @@ const register = async (req, res) => {
     return res.status(201).json({
       message: 'User registered successfully',
       user,
-      token,
+      token
     });
+
   } catch (err) {
     console.error('REGISTER ERROR:', err);
     return res.status(500).json({ message: 'Server error' });
@@ -93,18 +92,19 @@ const register = async (req, res) => {
 };
 
 const login = async (req, res) => {
-  const validationError = handleValidationErrors(req, res);
-  if (validationError) return;
+  if (validationFailed(req, res)) return;
 
   const { email, password } = req.body;
 
   try {
     const q = await pool.query(
-      'SELECT id, name, email, password_hash FROM users WHERE LOWER(email)=LOWER($1) LIMIT 1',
+      `SELECT id, name, email, password_hash 
+       FROM users 
+       WHERE LOWER(email) = LOWER($1) LIMIT 1`,
       [email]
     );
 
-    if (!q.rows.length) {
+    if (q.rows.length === 0) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
@@ -127,9 +127,10 @@ const login = async (req, res) => {
       user: {
         id: user.id,
         name: user.name,
-        email: user.email,
-      },
+        email: user.email
+      }
     });
+
   } catch (err) {
     console.error('LOGIN ERROR:', err);
     return res.status(500).json({ message: 'Server error' });
@@ -140,5 +141,5 @@ module.exports = {
   register,
   login,
   validateRegister,
-  validateLogin,
+  validateLogin
 };

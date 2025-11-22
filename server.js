@@ -68,8 +68,6 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'Backend OK' });
 });
 
-
-
 app.get('/setup', async (req, res) => {
   const queries = [
     `CREATE TABLE IF NOT EXISTS users (
@@ -122,14 +120,13 @@ app.get('/setup', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'All tables created successfully'
+      message: 'All tables created successfully with password_hash column.'
     });
   } catch (err) {
     console.error('Setup failed:', err);
     res.status(500).json({ error: err.message });
   }
 });
-
 
 app.get('/fix-passwords', async (req, res) => {
   if (process.env.NODE_ENV === 'production') {
