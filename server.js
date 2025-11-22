@@ -32,7 +32,7 @@ app.use(
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-      console.log('❌ Blocked by CORS:', origin);
+      console.log(' Blocked by CORS:', origin);
       return callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
@@ -42,7 +42,7 @@ app.use(
 );
 
 
-app.options('*', cors());
+//app.options('*', cors());
 
 
 app.use(morgan('combined'));
