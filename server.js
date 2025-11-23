@@ -19,32 +19,25 @@ const app = express();
 const allowedOrigins = [
   'http://localhost:5173',
   'https://wechi-gebi-frontend.vercel.app',
-  'https://wechi-gebi-frontend-id0el6c51-dago83s-projects.vercel.app',
 ];
-function isVercelPreview(origin) {
-  try {
-    const url = new URL(origin);
-    return url.hostname.endsWith('.vercel.app');
-  } catch {
-    return false;
-  }
-}
 
 app.use(
   cors({
     origin: (origin, callback) => {
-     
       if (!origin) return callback(null, true);
 
+      const vercelPattern = /\.vercel\.app$/;
+
       const isAllowed =
-        allowedOrigins.includes(origin) || isVercelPreview(origin);
+        allowedOrigins.includes(origin) ||
+        vercelPattern.test(new URL(origin).hostname);
 
       if (isAllowed) {
-        return callback(null, true);
+        callback(null, true);
+      } else {
+        console.log(' Blocked by CORS:', origin);
+        callback(new Error('Not allowed by CORS'));
       }
-
-      console.log(' Blocked by CORS:', origin);
-      return callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -61,8 +54,6 @@ app.use(
 
 app.use(morgan('combined'));
 app.use(express.json());
-
-
 
 app.get('/', (req, res) => {
   res.send('Wechi Gebi Backend is running');
